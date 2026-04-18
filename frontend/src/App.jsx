@@ -13,6 +13,8 @@ export default function LessonFlowDashboard() {
   const [teachers, setTeachers] = React.useState([]);
   const [lessons, setLessons] = React.useState([]);
   const [selectedTeacher, setSelectedTeacher] = React.useState(null);
+  const [students, setStudents] = React.useState([]);
+  const [selectedStudents, setSelectedStudents] = React.useState({});
 
   React.useEffect(() => {
     async function loadData() {
@@ -25,18 +27,34 @@ export default function LessonFlowDashboard() {
       } catch (err) {
         console.error("Veriler yüklenirken hata oluştu:", err);
       }
+
+      await fetchStudents();
+      console.log("Öğrenciler yüklendi:", students);
     }
 
     loadData();
   }, []);
 
+  // Ders Ekleme
   async function fetchLessons() {
     const res = await fetch("http://localhost:3000/lessons");
     const data = await res.json();
     setLessons(data);
   }
 
+  // Öğrenci Listeleme
+  async function fetchStudents() {
+  const res = await fetch("http://localhost:3000/students");
+  const data = await res.json();
+  setStudents(data);
+}
+
+  // Öğrenci ekleme
  function createLesson({ teacherId, time }) {
+  if (!selectedStudentId) {
+    alert("Lütfen öğrenci seç");
+  return;
+}
   fetch("http://localhost:3000/lessons", {
     method: "POST",
     headers: {
@@ -44,22 +62,23 @@ export default function LessonFlowDashboard() {
     },
     body: JSON.stringify({
       teacher_id: teacherId,
-      student_id: 1,
+      student_id: selectedStudentId,
       date: "2026-04-14",
       start_time: time,
       end_time: "11:00"
     })
   })
-  .then((res) => {fetchLessons(); return res;})
   .then((res) => res.json())
   .then((data) => {
-    console.log("ders oluşturuldu:", data);
+    console.log(data);
+    fetchLessons(); // Yeni dersi ekledikten sonra dersleri yeniden yükle
   })
   .catch((err) => {
     console.error("hata:", err);
   });
 }
 
+  // Seçilen öğretmenin derslerini filtreleme
   const teacherLessons = selectedTeacher
     ? lessons.filter((lesson) => lesson.teacher_id === selectedTeacher.id)
     : [];
@@ -193,23 +212,45 @@ export default function LessonFlowDashboard() {
                       <div className="mt-3 text-sm text-slate-600">
                         {lesson ? (
                           <p>Bu saatte planlanmış bir ders var.</p>
-                        ) : (
-                          <button onClick={() => createLesson({
+                          ) : (
+                          <div>
+                          <select onChange={(e) => setSelectedStudents({...selectedStudents, [time]: Number(e.target.value)})}>
+                            <option value="">Öğrenci seç</option>
+                            {students.map((student) => (
+                            <option key={student.id} value={student.id}>
+                              {student.name}
+                            </option>
+                            ))}
+                          </select>
+
+                          <button
+                          disabled={!selectedStudents[time]}
+                          className={`${
+                            selectedStudents[time]
+                            ? "text-blue-600 hover:underline"
+                            : "text-gray-400 cursor-not-allowed"
+                          } ml-4 text-sm font-medium`}
+                            onClick={() =>
+                            createLesson({
                             teacherId: selectedTeacher.id,
                             time: time,
-                          })} className="text-blue-600 hover:underline">
-                            + Yeni öğrenci / ders ekle
-                          </button>
-                        )}
-                      </div>
+                            studentId: selectedStudents[time] || null
+                          })
+                        }
+                      >
+                        Ders oluştur
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
+                    )}
+                  </div>
+                </div>
+                );
+              })}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
+  </div>
   );
 }
