@@ -85,9 +85,7 @@ app.post("/lessons", async (req, res) => {
       [student_id, teacher_id, date, start_time, end_time]
     );
     res.json(result.rows[0]);
-  } 
-
-  catch (err) {
+  } catch (err) {
     console.error(err);
     res.status(500).send("Ders eklenemedi");
   }
