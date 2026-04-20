@@ -80,6 +80,16 @@ app.post("/lessons", async (req, res) => {
     return res.status(400).json({ error: "teacher_id gerekli" });
   }
   try {
+    const { teacher_id, start_time } = req.body;
+
+    const existing = await pool.query(
+    "SELECT * FROM lessons WHERE teacher_id = $1 AND start_time = $2",
+    [teacher_id, start_time]
+  );
+
+  if (existing.rows.length > 0) {
+    return res.status(400).json({ error: "Bu saat zaten dolu" });
+  }
     const result = await pool.query(
       "INSERT INTO lessons (student_id, teacher_id, date, start_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING *",
       [student_id, teacher_id, date, start_time, end_time]
@@ -104,4 +114,17 @@ app.get("/lessons", async (req, res) => {
 
 app.listen(3000, () => {
   console.log("Server is running on port 3000");
+});
+
+// Ders Silme
+app.delete("/lessons/:id", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    await pool.query("DELETE FROM lessons WHERE id = $1", [id]);
+    res.json({ message: "Ders silindi" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Ders silinemedi");
+  }
 });

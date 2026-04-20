@@ -26,10 +26,11 @@ export default function LessonFlowDashboard() {
   const [lessons, setLessons] = React.useState([]);
   const [students, setStudents] = React.useState([]);
   const [selectedTeacher, setSelectedTeacher] = React.useState(null);
-  const [selectedStudentId, setSelectedStudentId] = React.useState("");
+  const [selectedStudentId, setSelectedStudentId] = React.useState(null);
   const [activeSlot, setActiveSlot] = React.useState(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [errorMessage, setErrorMessage] = React.useState("");
+  const [newStudentName, setNewStudentName] = React.useState("");
 
   const fetchLessons = React.useCallback(async () => {
     const data = await fetchJson("/lessons");
@@ -59,9 +60,9 @@ export default function LessonFlowDashboard() {
         setStudents(Array.isArray(studentsData) ? studentsData : []);
       } catch (error) {
         if (!cancelled) {
-          console.error("Veriler yuklenirken hata olustu:", error);
+          console.error("Veriler yüklenirken hata oluştu:", error);
           setErrorMessage(
-            "Veriler su an yuklenemiyor. Backend ve veritabani baglantisini kontrol edin.",
+            "Veriler şu an yüklenemiyor. Backend ve veritabani bağlantısını kontrol edin.",
           );
         }
       } finally {
@@ -69,7 +70,17 @@ export default function LessonFlowDashboard() {
           setIsLoading(false);
         }
       }
+
+      function handleEsc(e) {
+        if (e.key === "Escape") {
+          closeModal();
+        }
+      }
+
+      window.addEventListener("keydown", handleEsc);
+      return () => window.removeEventListener("keydown", handleEsc);
     }
+    
 
     loadData();
 
@@ -136,13 +147,55 @@ export default function LessonFlowDashboard() {
     }
   }
 
+  async function createStudent() {
+    if (!newStudentName.trim()) {
+      alert("Öğrenci adı gir");
+        return;
+      }
+
+    try {
+      const newStudent = await fetchJson("/students", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+       },
+        body: JSON.stringify({ name: newStudentName }),
+      });
+
+      // listeyi güncelle
+      setStudents((prev) => [...prev, newStudent]);
+
+      // otomatik seç
+      setSelectedStudentId(newStudent.id);
+
+      // input temizle
+      setNewStudentName("");
+    } 
+    catch (err) {
+      console.error("Öğrenci eklenemedi:", err);
+      alert("Öğrenci eklenemedi. Lütfen tekrar deneyin.");}
+  }
+
+  async function deleteLesson(id) {
+    try {
+      await fetchJson(`/lessons/${id}`, {
+        method: "DELETE",
+      });
+
+      await fetchLessons(); // listeyi yenile
+    } 
+    catch (err) {
+      console.error("Ders silinemedi:", err);
+      alert("Ders silinemedi. Lütfen tekrar deneyin.");}
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 p-6">
       <div className="mx-auto max-w-7xl space-y-6">
         <div>
           <h1 className="text-4xl font-bold text-slate-800">LessonFlow</h1>
           <p className="mt-2 text-slate-500">
-            Dersleri, ogretmenleri ve bos saatleri yonetin.
+            Dersleri, öğretmenleri ve boş saatleri yonetin.
           </p>
         </div>
 
@@ -171,7 +224,7 @@ export default function LessonFlowDashboard() {
                 >
                   <h3 className="text-xl font-semibold text-slate-800">{category}</h3>
                   <p className="mt-2 text-slate-500">
-                    Bu branstaki ogretmenleri ve bos saatleri goruntuleyin.
+                    Bu branştaki öğretmenleri ve boş saatleri görüntüleyin.
                   </p>
                 </button>
               ))}
@@ -185,11 +238,11 @@ export default function LessonFlowDashboard() {
               onClick={() => setSelectedCategory(null)}
               className="mb-4 text-sm text-blue-600 hover:underline"
             >
-              Derslere geri don
+              Derslere geri dön
             </button>
 
             <h2 className="mb-4 text-2xl font-semibold text-slate-700">
-              {selectedCategory} Ogretmenleri
+              {selectedCategory} Öğretmenleri
             </h2>
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -207,7 +260,7 @@ export default function LessonFlowDashboard() {
                     <h3 className="text-xl font-semibold text-slate-800">{teacher.name}</h3>
 
                     <div className="mt-4 space-y-2 text-sm text-slate-600">
-                      <p>{teacherLessonCount} ders planlanmis</p>
+                      <p>{teacherLessonCount} ders planlanmış</p>
                       <p>
                         {
                           timeSlots.filter(
@@ -219,7 +272,7 @@ export default function LessonFlowDashboard() {
                               ),
                           ).length
                         }{" "}
-                        bos saat
+                        boş saat
                       </p>
                     </div>
                   </button>
@@ -238,7 +291,7 @@ export default function LessonFlowDashboard() {
               }}
               className="mb-4 text-sm text-blue-600 hover:underline"
             >
-              Ogretmen listesine geri don
+              Ögretmen listesine geri don
             </button>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow">
@@ -272,7 +325,16 @@ export default function LessonFlowDashboard() {
 
                       <div className="mt-3 text-sm text-slate-600">
                         {lesson ? (
-                          <p>Bu saat icin ders kaydi bulunuyor.</p>
+                          <div>
+                            <p>Bu saat icin ders kaydı bulunuyor.</p>
+
+                            <button
+                              onClick={() => deleteLesson(lesson.id)}
+                              className="mt-2 text-red-600 hover:underline"
+                            >
+                              - Ders kaydını sil
+                            </button>
+                          </div>
                         ) : (
                           <button
                             onClick={() =>
@@ -299,14 +361,14 @@ export default function LessonFlowDashboard() {
       {activeSlot && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-800">Ogrenci sec</h3>
+            <h3 className="text-lg font-semibold text-slate-800">Öğrenci seç</h3>
             <p className="mt-2 text-sm text-slate-500">
-              {activeSlot.time} saati icin bir ogrenci secip dersi kaydedin.
+              {activeSlot.time} saati için bir öğrenci seçip dersi kaydedin.
             </p>
 
             <select
-              value={selectedStudentId}
-              onChange={(event) => setSelectedStudentId(event.target.value)}
+              value={selectedStudentId ?? ""}
+              onChange={(e) => setSelectedStudentId(Number(e.target.value))}
               className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2"
             >
               <option value="">Sec</option>
@@ -316,6 +378,27 @@ export default function LessonFlowDashboard() {
                 </option>
               ))}
             </select>
+
+            <div className="mt-4 border-t pt-4">
+              <p className="text-sm text-slate-500 mb-2">Yeni öğrenci ekle</p>
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newStudentName}
+                  onChange={(e) => setNewStudentName(e.target.value)}
+                  placeholder="Öğrenci adı"
+                  className="flex-1 rounded-xl border border-slate-300 px-3 py-2"
+                />
+
+                <button
+                  onClick={createStudent}
+                  className="bg-green-600 text-white px-4 rounded-xl"
+                >
+                  Ekle
+                </button>
+              </div>
+            </div>
 
             <div className="mt-4 flex gap-3">
               <button
