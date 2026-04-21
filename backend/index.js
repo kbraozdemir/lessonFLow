@@ -21,6 +21,24 @@ pool.query('SELECT NOW()', (err, res) => {
   else console.log('DB bağlantısı başarılı:', res.rows);
 });
 
+function normalizeTimeValue(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+
+  if (/^\d{2}:\d{2}$/.test(trimmedValue)) {
+    return `${trimmedValue}:00`;
+  }
+
+  if (/^\d{2}:\d{2}:\d{2}$/.test(trimmedValue)) {
+    return trimmedValue;
+  }
+
+  return null;
+}
+
 //Öğrenci ekleme
 app.post("/students", async (req, res) => {
   const { name, parent_name } = req.body;
@@ -76,24 +94,48 @@ app.get("/teachers", async (req, res) => {
 // Ders ekleme
 app.post("/lessons", async (req, res) => {
   const { teacher_id, student_id, date, start_time, end_time } = req.body;
+
   if (teacher_id == null || teacher_id === "null") {
     return res.status(400).json({ error: "teacher_id gerekli" });
   }
-  try {
-    const { teacher_id, start_time } = req.body;
 
-    const existing = await pool.query(
-    "SELECT * FROM lessons WHERE teacher_id = $1 AND start_time = $2",
-    [teacher_id, start_time]
-  );
-
-  if (existing.rows.length > 0) {
-    return res.status(400).json({ error: "Bu saat zaten dolu" });
+  if (!date || !start_time || !end_time) {
+    return res.status(400).json({ error: "date, start_time ve end_time gerekli" });
   }
-    const result = await pool.query(
-      "INSERT INTO lessons (student_id, teacher_id, date, start_time, end_time) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [student_id, teacher_id, date, start_time, end_time]
+
+  const normalizedStartTime = normalizeTimeValue(start_time);
+  const normalizedEndTime = normalizeTimeValue(end_time);
+
+  if (!normalizedStartTime || !normalizedEndTime) {
+    return res.status(400).json({ error: "Saat formati gecersiz" });
+  }
+
+  if (normalizedEndTime <= normalizedStartTime) {
+    return res.status(400).json({ error: "end_time, start_time'dan sonra olmali" });
+  }
+
+  try {
+    const existing = await pool.query(
+      `SELECT id
+       FROM lessons
+       WHERE teacher_id = $1
+         AND date::date = $2::date
+         AND start_time::time = $3::time
+       LIMIT 1`,
+      [teacher_id, date, normalizedStartTime]
     );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: "Bu saat zaten dolu" });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO lessons (student_id, teacher_id, date, start_time, end_time)
+       VALUES ($1, $2, $3::date, $4::time, $5::time)
+       RETURNING *`,
+      [student_id, teacher_id, date, normalizedStartTime, normalizedEndTime]
+    );
+
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);

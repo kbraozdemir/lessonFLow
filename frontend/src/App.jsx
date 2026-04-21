@@ -31,6 +31,8 @@ export default function LessonFlowDashboard() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [errorMessage, setErrorMessage] = React.useState("");
   const [newStudentName, setNewStudentName] = React.useState("");
+  const [successMessage, setSuccessMessage] = React.useState("");
+  const [isSaving, setIsSaving] = React.useState(false);
 
   const fetchLessons = React.useCallback(async () => {
     const data = await fetchJson("/lessons");
@@ -70,17 +72,7 @@ export default function LessonFlowDashboard() {
           setIsLoading(false);
         }
       }
-
-      function handleEsc(e) {
-        if (e.key === "Escape") {
-          closeModal();
-        }
-      }
-
-      window.addEventListener("keydown", handleEsc);
-      return () => window.removeEventListener("keydown", handleEsc);
     }
-    
 
     loadData();
 
@@ -88,6 +80,26 @@ export default function LessonFlowDashboard() {
       cancelled = true;
     };
   }, []);
+
+  React.useEffect(() => {
+    function handleEsc(event) {
+      if (event.key === "Escape") {
+        closeModal();
+      }
+    }
+
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, []);
+
+  React.useEffect(() => {
+    if (!successMessage) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => setSuccessMessage(""), 2000);
+    return () => window.clearTimeout(timeoutId);
+  }, [successMessage]);
 
   const filteredTeachers = React.useMemo(() => {
     if (!selectedCategory) {
@@ -113,7 +125,8 @@ export default function LessonFlowDashboard() {
 
   function closeModal() {
     setActiveSlot(null);
-    setSelectedStudentId("");
+    setSelectedStudentId(null);
+    setNewStudentName("");
   }
 
   async function createLesson() {
@@ -124,6 +137,7 @@ export default function LessonFlowDashboard() {
 
     try {
       setErrorMessage("");
+      setIsSaving(true);
 
       await fetchJson("/lessons", {
         method: "POST",
@@ -140,10 +154,13 @@ export default function LessonFlowDashboard() {
       });
 
       await fetchLessons();
+      setSuccessMessage("Ders başarıyla eklendi");
       closeModal();
     } catch (error) {
       console.error("Ders eklenemedi:", error);
       setErrorMessage("Ders kaydedilemedi. Lutfen tekrar deneyin.");
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -183,6 +200,7 @@ export default function LessonFlowDashboard() {
       });
 
       await fetchLessons(); // listeyi yenile
+      setSuccessMessage("Ders başarıyla silindi");
     } 
     catch (err) {
       console.error("Ders silinemedi:", err);
@@ -357,21 +375,30 @@ export default function LessonFlowDashboard() {
           </div>
         )}
       </div>
+ 
+        {successMessage && (
+          <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            {successMessage}
+          </div>
+        )}
 
       {activeSlot && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="fixed inset-0 flex items-center justify-center bg-black/30 p-4"
+        onClick={closeModal}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+          onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-lg font-semibold text-slate-800">Öğrenci seç</h3>
             <p className="mt-2 text-sm text-slate-500">
-              {activeSlot.time} saati için bir öğrenci seçip dersi kaydedin.
+              {selectedTeacher.name} ile {activeSlot.time} arasında ders yapacak öğrenciyi seçin veya yeni öğrenci ekleyin.
             </p>
 
             <select
               value={selectedStudentId ?? ""}
-              onChange={(e) => setSelectedStudentId(Number(e.target.value))}
+              onChange={(e) => setSelectedStudentId(e.target.value ? Number(e.target.value) : null)}
               className="mt-4 w-full rounded-xl border border-slate-300 px-3 py-2"
             >
-              <option value="">Sec</option>
+              <option value="">Seç</option>
               {students.map((student) => (
                 <option key={student.id} value={student.id}>
                   {student.name}
@@ -379,6 +406,7 @@ export default function LessonFlowDashboard() {
               ))}
             </select>
 
+              
             <div className="mt-4 border-t pt-4">
               <p className="text-sm text-slate-500 mb-2">Yeni öğrenci ekle</p>
 
@@ -400,13 +428,16 @@ export default function LessonFlowDashboard() {
               </div>
             </div>
 
-            <div className="mt-4 flex gap-3">
+            <div 
+            className="mt-6 flex justify-end"
+            >
               <button
                 onClick={closeModal}
                 className="rounded-xl border border-slate-300 px-4 py-2 text-slate-700"
               >
                 Iptal
               </button>
+              <span className="mx-2 text-sm text-slate-500">veya</span>
               <button
                 disabled={!selectedStudentId}
                 onClick={createLesson}
@@ -416,7 +447,7 @@ export default function LessonFlowDashboard() {
                     : "cursor-not-allowed bg-slate-200 text-slate-500"
                 }`}
               >
-                Kaydet
+                {isSaving ? "Kaydediliyor..." : "Dersi Kaydet"}
               </button>
             </div>
           </div>
