@@ -4,17 +4,28 @@ const app = express();
 
 app.use(express.json());
 app.use(cors());
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
 
+const PORT = process.env.PORT || 3000;
 
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  user: 'admin',
-  host: 'localhost',
-  database: 'ozel_egitim',
-  password: 'sifre123',
-  port: 5432,
-});
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: { rejectUnauthorized: false },
+      }
+    : {
+        user: "admin",
+        host: "localhost",
+        database: "ozel_egitim",
+        password: "sifre123",
+        port: 5432,
+      }
+);
 
 pool.query('SELECT NOW()', (err, res) => {
   if(err) console.log(err);
@@ -152,10 +163,6 @@ app.get("/lessons", async (req, res) => {
     console.error(err);
     res.status(500).send("Dersler alınamadı");
   }
-});
-
-app.listen(3000, () => {
-  console.log("Server is running on port 3000");
 });
 
 // Ders Silme
