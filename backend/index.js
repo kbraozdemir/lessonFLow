@@ -9,6 +9,7 @@ app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 const { Pool } = require('pg');
+const DEFAULT_TEACHER_CATEGORY = "Ozel Egitim";
 
 const pool = new Pool(
   process.env.DATABASE_URL
@@ -42,9 +43,22 @@ async function initializeDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS teachers (
       id SERIAL PRIMARY KEY,
-      name TEXT NOT NULL
+      name TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT '${DEFAULT_TEACHER_CATEGORY}'
     )
   `);
+
+  await pool.query(`
+    ALTER TABLE teachers
+    ADD COLUMN IF NOT EXISTS category TEXT
+  `);
+
+  await pool.query(
+    `UPDATE teachers
+     SET category = $1
+     WHERE category IS NULL OR BTRIM(category) = ''`,
+    [DEFAULT_TEACHER_CATEGORY]
+  );
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS lessons (
@@ -61,6 +75,30 @@ async function initializeDatabase() {
     CREATE UNIQUE INDEX IF NOT EXISTS lessons_teacher_date_start_time_key
     ON lessons (teacher_id, date, start_time)
   `);
+
+  const teacherCountResult = await pool.query("SELECT COUNT(*) AS count FROM teachers");
+  const teacherCount = Number(teacherCountResult.rows[0]?.count || 0);
+
+  if (teacherCount === 0) {
+    await pool.query(
+      `
+        INSERT INTO teachers (name, category)
+        VALUES ($1, $2), ($3, $4), ($5, $6), ($7, $8), ($9, $10)
+      `,
+      [
+        "Ayse Yilmaz",
+        "Dil ve Konusma",
+        "Mehmet Demir",
+        "Ergoterapi",
+        "Elif Kaya",
+        "Ozel Egitim",
+        "Can Aydin",
+        "Duyu Butunleme",
+        "Zeynep Arslan",
+        "Psikolog",
+      ]
+    );
+  }
 }
 
 function normalizeTimeValue(value) {
@@ -109,11 +147,11 @@ app.get("/students", async (req, res) => {
 
 // Öğretmen ekleme
 app.post("/teachers", async (req, res) => {
-  const { name } = req.body;
+  const { name, category } = req.body;
   try {
     const result = await pool.query(
-      "INSERT INTO teachers (name) VALUES ($1) RETURNING *",
-      [name]
+      "INSERT INTO teachers (name, category) VALUES ($1, $2) RETURNING *",
+      [name, category?.trim() || DEFAULT_TEACHER_CATEGORY]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -125,7 +163,7 @@ app.post("/teachers", async (req, res) => {
 // Öğretmen listeleme
 app.get("/teachers", async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM teachers");
+    const result = await pool.query("SELECT * FROM teachers ORDER BY category, name");
     res.json(result.rows);
   } catch (err) {
     console.error(err);

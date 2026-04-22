@@ -4,10 +4,10 @@ const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL || "https://lessonflow-jwqo.onrender.com"
 ).replace(/\/+$/, "");
 const categories = [
-  "Dil ve Konusma",
+  "Dil ve Konuşma",
   "Ergoterapi",
-  "Ozel Egitim",
-  "Duyu Butunleme",
+  "Özel Eğitim",
+  "Duyu Bütünleme",
   "Psikolog",
 ];
 const timeSlots = ["09:00", "10:00", "11:00", "13:00", "14:00", "15:00"];
