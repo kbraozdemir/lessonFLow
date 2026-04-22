@@ -1,6 +1,8 @@
 import React from "react";
 
-const API_BASE_URL = "https://lessonflow-jwqo.onrender.com/";
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL || "https://lessonflow-jwqo.onrender.com"
+).replace(/\/+$/, "");
 const categories = [
   "Dil ve Konusma",
   "Ergoterapi",
