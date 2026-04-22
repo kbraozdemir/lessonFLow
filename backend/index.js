@@ -1,16 +1,13 @@
 const express = require("express");
 const cors = require("cors");
+require("dotenv").config();
+
 const app = express();
 
 app.use(express.json());
 app.use(cors());
 
-
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
 const { Pool } = require('pg');
 
 const pool = new Pool(
@@ -32,6 +29,39 @@ pool.query('SELECT NOW()', (err, res) => {
   if(err) console.log(err);
   else console.log('DB bağlantısı başarılı:', res.rows);
 });
+
+async function initializeDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS students (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      parent_name TEXT
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS teachers (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS lessons (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER REFERENCES students(id) ON DELETE SET NULL,
+      teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+      date DATE NOT NULL,
+      start_time TIME NOT NULL,
+      end_time TIME NOT NULL
+    )
+  `);
+
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS lessons_teacher_date_start_time_key
+    ON lessons (teacher_id, date, start_time)
+  `);
+}
 
 function normalizeTimeValue(value) {
   if (typeof value !== "string") {
@@ -178,3 +208,19 @@ app.delete("/lessons/:id", async (req, res) => {
     res.status(500).send("Ders silinemedi");
   }
 });
+
+async function startServer() {
+  try {
+    await initializeDatabase();
+    console.log("Veritabani tablolari hazir.");
+
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Veritabani baslatilamadi:", err);
+    process.exit(1);
+  }
+}
+
+startServer();

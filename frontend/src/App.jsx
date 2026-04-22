@@ -1,6 +1,6 @@
 import React from "react";
 
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = "https://lessonflow-jwqo.onrender.com/";
 const categories = [
   "Dil ve Konusma",
   "Ergoterapi",
