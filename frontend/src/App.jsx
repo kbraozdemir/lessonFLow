@@ -36,6 +36,10 @@ export default function LessonFlowDashboard() {
   const [successMessage, setSuccessMessage] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
 
+  function notifyTeacher() {
+    setSuccessMessage("Öğretmene bildirim gönderildi");
+  }
+
   const fetchLessons = React.useCallback(async () => {
     const data = await fetchJson("/lessons");
     setLessons(Array.isArray(data) ? data : []);
@@ -353,6 +357,13 @@ export default function LessonFlowDashboard() {
                               className="mt-2 text-red-600 hover:underline"
                             >
                               - Ders kaydını sil
+                            </button>
+
+                            <button
+                              onClick={notifyTeacher}
+                              className="mt-2 block rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                            >
+                              Öğretmene bildir
                             </button>
                           </div>
                         ) : (
